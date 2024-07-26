@@ -9,8 +9,11 @@
 use std::path::PathBuf;
 
 use alloy_sol_types::{sol, SolType};
+use ark_ec::pairing::Pairing;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::UniformRand;
 use clap::Parser;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, ser::Error as _, Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1VerifyingKey};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
@@ -49,9 +52,12 @@ fn main() {
 
     // Setup the inputs.;
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.n);
-
     println!("n: {}", args.n);
+    let mut rng = jf_utils::test_rng();
+    let points = VecG1Affine((0..args.n).map(|_| G1Affine::rand(&mut rng)).collect());
+    stdin.write(&points);
+    let scalars = VecScalarField((0..args.n).map(|_| ScalarField::rand(&mut rng)).collect());
+    stdin.write(&scalars);
 
     if args.evm {
         // Generate the proof.
@@ -62,10 +68,12 @@ fn main() {
     } else {
         // Generate the proof.
         let proof = client.prove(&pk, stdin).expect("failed to generate proof");
-        let (_, _, fib_n) =
-            PublicValuesTuple::abi_decode(proof.public_values.as_slice(), false).unwrap();
+        let result = <ark_bn254::G1Projective as CanonicalDeserialize>::deserialize_uncompressed(
+            proof.public_values.as_slice(),
+        )
+        .unwrap();
         println!("Successfully generated proof!");
-        println!("fib(n): {}", fib_n);
+        println!("result: {}", result);
 
         // Verify the proof.
         client.verify(&proof, &vk).expect("failed to verify proof");
@@ -124,4 +132,63 @@ fn create_plonk_fixture(proof: &SP1PlonkBn254Proof, vk: &SP1VerifyingKey) {
         serde_json::to_string_pretty(&fixture).unwrap(),
     )
     .expect("failed to write fixture");
+}
+
+type E = ark_bn254::Bn254;
+type G1Affine = <E as Pairing>::G1Affine;
+
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+struct VecG1Affine(pub Vec<G1Affine>);
+
+impl Serialize for VecG1Affine {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_uncompressed(&mut bytes)
+            .map_err(|e| S::Error::custom(format!("{e:?}")))?;
+        Serialize::serialize(&bytes, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for VecG1Affine {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let bytes = <Vec<u8> as Deserialize>::deserialize(deserializer)?;
+        <Self as CanonicalDeserialize>::deserialize_uncompressed_unchecked(&*bytes)
+            .map_err(|e| D::Error::custom(format!("{e:?}")))
+    }
+}
+
+type ScalarField = <E as Pairing>::ScalarField;
+
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+struct VecScalarField(pub Vec<ScalarField>);
+
+impl Serialize for VecScalarField {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut bytes = Vec::new();
+        self.0
+            .serialize_uncompressed(&mut bytes)
+            .map_err(|e| S::Error::custom(format!("{e:?}")))?;
+        Serialize::serialize(&bytes, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for VecScalarField {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let bytes = <Vec<u8> as Deserialize>::deserialize(deserializer)?;
+        <Self as CanonicalDeserialize>::deserialize_uncompressed_unchecked(&*bytes)
+            .map_err(|e| D::Error::custom(format!("{e:?}")))
+    }
 }

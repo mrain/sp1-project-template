@@ -1,9 +1,14 @@
 [workspace]
 [package]
 version = "0.1.0"
-name = "fibonacci-program"
+name = "derivation-pipeline"
 edition = "2021"
 
 [dependencies]
+ark-bn254 = "0.4"
+ark-ec = "0.4"
+ark-ff = "0.4"
+ark-serialize = "0.4"
 alloy-sol-types = "0.7.2"
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.7-testnet" }
+serde = { version = "1.0.195", features = ["derive"] }
