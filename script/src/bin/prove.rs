@@ -50,7 +50,7 @@ fn main() {
     // Setup the program.
     let (pk, vk) = client.setup(FIBONACCI_ELF);
 
-    // Setup the inputs.;
+    // Setup the inputs.
     let mut stdin = SP1Stdin::new();
     println!("n: {}", args.n);
     let mut rng = jf_utils::test_rng();
@@ -62,7 +62,9 @@ fn main() {
     if args.evm {
         // Generate the proof.
         let proof = client
-            .prove_plonk(&pk, stdin)
+            .prove(&pk, stdin)
+            .plonk()
+            .run()
             .expect("failed to generate proof");
         create_plonk_fixture(&proof, &vk);
     } else {
@@ -93,7 +95,7 @@ struct SP1FibonacciProofFixture {
 }
 
 /// Create a fixture for the given proof.
-fn create_plonk_fixture(proof: &SP1PlonkBn254Proof, vk: &SP1VerifyingKey) {
+fn create_plonk_fixture(proof: &SP1ProofWithPublicValues, vk: &SP1VerifyingKey) {
     // Deserialize the public values.
     let bytes = proof.public_values.as_slice();
     let (n, a, b) = PublicValuesTuple::abi_decode(bytes, false).unwrap();
@@ -104,8 +106,8 @@ fn create_plonk_fixture(proof: &SP1PlonkBn254Proof, vk: &SP1VerifyingKey) {
         b,
         n,
         vkey: vk.bytes32().to_string(),
-        public_values: proof.public_values.bytes().to_string(),
-        proof: proof.bytes().to_string(),
+        public_values: format!("0x{}", hex::encode(bytes)),
+        proof: format!("0x{}", hex::encode(proof.bytes())),
     };
 
     // The verification key is used to verify that the proof corresponds to the execution of the
