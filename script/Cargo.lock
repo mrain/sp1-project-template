@@ -1215,7 +1215,6 @@ dependencies = [
 name = "derivation-script"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.4.2",

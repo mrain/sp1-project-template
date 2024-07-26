@@ -6,15 +6,13 @@
 //! RUST_LOG=info cargo run --package fibonacci-script --bin prove --release
 //! ```
 
-use std::path::PathBuf;
-
-use alloy_sol_types::{sol, SolType};
 use ark_ec::pairing::Pairing;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use clap::Parser;
 use serde::{de::Error as _, ser::Error as _, Deserialize, Serialize};
 use sp1_sdk::{HashableKey, ProverClient, SP1PlonkBn254Proof, SP1Stdin, SP1VerifyingKey};
+use std::path::PathBuf;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 ///
@@ -31,11 +29,6 @@ struct ProveArgs {
     #[clap(long, default_value = "false")]
     evm: bool,
 }
-
-/// The public values encoded as a tuple that can be easily deserialized inside Solidity.
-type PublicValuesTuple = sol! {
-    tuple(uint32, uint32, uint32)
-};
 
 fn main() {
     // Setup the logger.
@@ -62,9 +55,7 @@ fn main() {
     if args.evm {
         // Generate the proof.
         let proof = client
-            .prove(&pk, stdin)
-            .plonk()
-            .run()
+            .prove_plonk(&pk, stdin)
             .expect("failed to generate proof");
         create_plonk_fixture(&proof, &vk);
     } else {
@@ -85,29 +76,19 @@ fn main() {
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SP1FibonacciProofFixture {
-    a: u32,
-    b: u32,
-    n: u32,
+struct ProofFixture {
     vkey: String,
     public_values: String,
     proof: String,
 }
 
 /// Create a fixture for the given proof.
-fn create_plonk_fixture(proof: &SP1ProofWithPublicValues, vk: &SP1VerifyingKey) {
-    // Deserialize the public values.
-    let bytes = proof.public_values.as_slice();
-    let (n, a, b) = PublicValuesTuple::abi_decode(bytes, false).unwrap();
-
-    // Create the testing fixture so we can test things end-ot-end.
-    let fixture = SP1FibonacciProofFixture {
-        a,
-        b,
-        n,
+fn create_plonk_fixture(proof: &SP1PlonkBn254Proof, vk: &SP1VerifyingKey) {
+    // Create the testing fixture so we can test things end-to-end.
+    let fixture = ProofFixture {
         vkey: vk.bytes32().to_string(),
-        public_values: format!("0x{}", hex::encode(bytes)),
-        proof: format!("0x{}", hex::encode(proof.bytes())),
+        public_values: proof.public_values.bytes().to_string(),
+        proof: proof.bytes().to_string(),
     };
 
     // The verification key is used to verify that the proof corresponds to the execution of the
@@ -116,7 +97,7 @@ fn create_plonk_fixture(proof: &SP1ProofWithPublicValues, vk: &SP1VerifyingKey) 
     // Note that the verification key stays the same regardless of the input.
     println!("Verification Key: {}", fixture.vkey);
 
-    // The public values are the values whicha are publically commited to by the zkVM.
+    // The public values are the values whicha are publicly committed to by the zkVM.
     //
     // If you need to expose the inputs or outputs of your program, you should commit them in
     // the public values.
