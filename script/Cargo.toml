@@ -19,7 +19,7 @@ ark-bn254 = "0.4"
 ark-ec = "0.4"
 ark-ff = "0.4"
 ark-serialize = "0.4"
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.8-testnet" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.1.0-fix.3" }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 clap = { version = "4.0", features = ["derive", "env"] }
@@ -29,4 +29,4 @@ jf-utils = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5"
 ] }
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.8-testnet" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.1.0-fix.3" }
