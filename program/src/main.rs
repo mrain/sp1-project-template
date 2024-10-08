@@ -33,7 +33,9 @@ pub fn main() {
     // let bigints: Vec<_> = scalars.0.into_iter().map(|s| s.into()).collect();
     // let result = <E as Pairing>::G1::msm_bigint(&points.0, &bigints);
     // let result = unwrap_g1affine(&result);
+    std::println!("cycle-tracker-start: msm");
     let result = msm(&points.0, &scalars.0);
+    std::println!("cycle-tracker-end: msm");
     std::println!("{}", result);
 
     let mut bytes = vec![];
@@ -80,7 +82,6 @@ fn bn254_add(p: &mut BnAffinePoint, q: &BnAffinePoint) {
 }
 
 fn bn254_double_and_add(p: &mut BnAffinePoint, s: &ScalarField) {
-    // let mut t = *p;
     let mut t = *p;
     let mut b = s.into_bigint().to_bits_le().into_iter();
     let mut q = {
